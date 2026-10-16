@@ -7,11 +7,10 @@ All Mock CRM API routes are mounted under `/api/v1` and require development auth
 ## 1. Request & Response Envelopes
 
 ### Standard Success Collection Envelope
+
 ```json
 {
-  "data": [
-    { "id": "11111111-1111-4000-8000-000000000001", "name": "Tenant Alpha" }
-  ],
+  "data": [{ "id": "11111111-1111-4000-8000-000000000001", "name": "Tenant Alpha" }],
   "meta": {
     "page": 1,
     "limit": 20,
@@ -22,6 +21,7 @@ All Mock CRM API routes are mounted under `/api/v1` and require development auth
 ```
 
 ### Standard Single Entity Envelope
+
 ```json
 {
   "data": {
@@ -35,6 +35,7 @@ All Mock CRM API routes are mounted under `/api/v1` and require development auth
 ```
 
 ### Standard Error Response Envelope
+
 ```json
 {
   "error": {
@@ -49,11 +50,13 @@ All Mock CRM API routes are mounted under `/api/v1` and require development auth
 ## 2. Endpoints Reference
 
 ### Health Check (Public)
+
 - **`GET /health`**
   - **Auth**: None
   - **Response**: `{ "status": "ok", "service": "mock-crm-api", "version": "1.0.0" }`
 
 ### Current Identity Scope
+
 - **`GET /api/v1/me`**
   - **Headers**: `x-mock-identity: <identity_key>`
   - **Response**:
@@ -73,13 +76,19 @@ All Mock CRM API routes are mounted under `/api/v1` and require development auth
           "isSuperAdmin": false,
           "authorizedTenantId": "11111111-1111-4000-8000-000000000001",
           "authorizedBranchId": null,
-          "allowedPermissions": ["tenants:read", "branches:read", "employees:read", "designations:read"]
+          "allowedPermissions": [
+            "tenants:read",
+            "branches:read",
+            "employees:read",
+            "designations:read"
+          ]
         }
       }
     }
     ```
 
 ### Tenants
+
 - **`GET /api/v1/tenants`**
   - **Query**: `page` (default: 1), `limit` (default: 20)
   - **Scope**: Super Admin views all tenants; Tenant Admin / Branch Admin / Employee views only their authorized tenant.
@@ -88,6 +97,7 @@ All Mock CRM API routes are mounted under `/api/v1` and require development auth
   - **Errors**: `400 VALIDATION_ERROR` (malformed UUID), `403 CROSS_TENANT_ACCESS_FORBIDDEN` (different tenant), `404 NOT_FOUND` (unknown ID).
 
 ### Branches
+
 - **`GET /api/v1/tenants/:tenantId/branches`**
   - **Params**: `tenantId` (UUID)
   - **Query**: `page`, `limit`, `status` (`active` | `inactive`)
@@ -96,6 +106,7 @@ All Mock CRM API routes are mounted under `/api/v1` and require development auth
   - **Scope**: Must belong to caller's tenant; branch admins and employees can only access their assigned branch.
 
 ### Employees
+
 - **`GET /api/v1/tenants/:tenantId/employees`**
   - **Params**: `tenantId` (UUID)
   - **Query**: `page`, `limit`, `status`, `branchId`, `role`, `chatEligible`
@@ -106,6 +117,7 @@ All Mock CRM API routes are mounted under `/api/v1` and require development auth
   - **Params**: `employeeId` (UUID)
 
 ### Chat Designations
+
 - **`GET /api/v1/tenants/:tenantId/chat-designations`**
   - **Params**: `tenantId` (UUID)
   - **Query**: `page`, `limit`, `status`
@@ -113,6 +125,7 @@ All Mock CRM API routes are mounted under `/api/v1` and require development auth
   - **Params**: `designationId` (UUID)
 
 ### Eligible Chat Agents
+
 - **`GET /api/v1/branches/:branchId/chat-agents`**
   - **Params**: `branchId` (UUID)
   - **Response**: Array of employees in that branch where `status === 'active'`, `chatSupportEligible === true`, and designation is active.

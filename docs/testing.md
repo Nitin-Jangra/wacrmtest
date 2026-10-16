@@ -27,21 +27,25 @@ tests/
 ## 2. Test Execution Commands
 
 Run all tests:
+
 ```bash
 npm test
 ```
 
 Run unit tests only:
+
 ```bash
 npm run test:unit
 ```
 
 Run integration tests only:
+
 ```bash
 npm run test:integration
 ```
 
 Run security tests only:
+
 ```bash
 npm run test:security
 ```

@@ -1,8 +1,8 @@
 # Gym WhatsApp Helpdesk — Mock CRM API & Staging Foundation
 
-[![Tests](https://img.shields.io/badge/tests-67%2F67%20passing-brightgreen.svg)]()
-[![TypeScript](https://img.shields.io/badge/typescript-strict-blue.svg)]()
-[![Node.js](https://img.shields.io/badge/node-%3E%3D18.0.0-green.svg)]()
+[![Tests](https://img.shields.io/badge/tests-67%2F67%20passing-brightgreen.svg)](<>)
+[![TypeScript](https://img.shields.io/badge/typescript-strict-blue.svg)](<>)
+[![Node.js](https://img.shields.io/badge/node-%3E%3D18.0.0-green.svg)](<>)
 
 Production-oriented, multi-tenant foundation for the **Gym WhatsApp Helpdesk** system. This milestone delivers a standalone **Mock CRM API** simulating an external multi-tenant gym CRM hierarchy, alongside the main **Helpdesk API** communicating exclusively through a pluggable **CRM Integration Adapter**.
 
@@ -73,21 +73,26 @@ gym-whatsapp-helpdesk/
 ## 3. Quickstart & Reproducible Setup
 
 ### Prerequisites
+
 - **Node.js** >= 18.0.0 (Tested on Node.js v24.21.0)
 - **npm** >= 9.0.0
 
 ### Step 1: Install Dependencies
+
 ```bash
 npm install
 ```
 
 ### Step 2: Configure Environment
+
 Copy the `.env.example` file to `.env`:
+
 ```bash
 cp .env.example .env
 ```
 
 Default `.env` configuration:
+
 ```ini
 NODE_ENV=development
 API_PORT=4000
@@ -100,6 +105,7 @@ MOCK_CRM_SERVICE_TOKEN=dev-service-token-secret-change-in-prod
 ```
 
 ### Step 3: Compile Packages
+
 ```bash
 npm run build
 ```
@@ -109,18 +115,23 @@ npm run build
 ## 4. Running the Applications
 
 ### Run Both Services Concurrently
+
 Starts both Mock CRM API (`:4001`) and Helpdesk API (`:4000`) simultaneously:
+
 ```bash
 npm run dev
 ```
 
 ### Run Services Independently
+
 Run Mock CRM API only:
+
 ```bash
 npm run dev:mock-crm
 ```
 
 Run Helpdesk API only:
+
 ```bash
 npm run dev:api
 ```
@@ -131,15 +142,15 @@ npm run dev:api
 
 Use the `x-mock-identity` header in API requests:
 
-| Header Value | Role | Tenant | Branch Scope | Permissions |
-|---|---|---|---|---|
-| `super_admin` | Super Admin | Global | All branches | Full platform permissions |
-| `alpha_admin` | Tenant Admin | Tenant Alpha | All Alpha branches | Manage Tenant Alpha |
-| `alpha_branch_admin` | Branch Admin | Tenant Alpha | Greater Noida branch | Read Alpha, manage branch |
-| `alpha_employee` | Employee | Tenant Alpha | Greater Noida branch | Read assigned branch & agents |
-| `beta_admin` | Tenant Admin | Tenant Beta | All Beta branches | Manage Tenant Beta |
-| `beta_branch_admin` | Branch Admin | Tenant Beta | Jaipur branch | Read Beta, manage branch |
-| `beta_employee` | Employee | Tenant Beta | Jaipur branch | Read assigned branch & agents |
+| Header Value         | Role         | Tenant       | Branch Scope         | Permissions                   |
+| -------------------- | ------------ | ------------ | -------------------- | ----------------------------- |
+| `super_admin`        | Super Admin  | Global       | All branches         | Full platform permissions     |
+| `alpha_admin`        | Tenant Admin | Tenant Alpha | All Alpha branches   | Manage Tenant Alpha           |
+| `alpha_branch_admin` | Branch Admin | Tenant Alpha | Greater Noida branch | Read Alpha, manage branch     |
+| `alpha_employee`     | Employee     | Tenant Alpha | Greater Noida branch | Read assigned branch & agents |
+| `beta_admin`         | Tenant Admin | Tenant Beta  | All Beta branches    | Manage Tenant Beta            |
+| `beta_branch_admin`  | Branch Admin | Tenant Beta  | Jaipur branch        | Read Beta, manage branch      |
+| `beta_employee`      | Employee     | Tenant Beta  | Jaipur branch        | Read assigned branch & agents |
 
 Alternatively, automated service requests can pass:
 `Authorization: Bearer dev-service-token-secret-change-in-prod`
@@ -149,40 +160,49 @@ Alternatively, automated service requests can pass:
 ## 6. Example API Requests
 
 ### 1. Public Health Check
+
 ```bash
 curl http://localhost:4001/health
 ```
 
 ### 2. Inspect Current Identity & Scope
+
 ```bash
 curl -H "x-mock-identity: alpha_admin" http://localhost:4001/api/v1/me
 ```
 
 ### 3. List Branches for Tenant Alpha
+
 ```bash
 curl -H "x-mock-identity: alpha_admin" \
   http://localhost:4001/api/v1/tenants/11111111-1111-4000-8000-000000000001/branches
 ```
 
 ### 4. Fetch Eligible Chat Agents for Branch
+
 ```bash
 curl -H "x-mock-identity: alpha_branch_admin" \
   http://localhost:4001/api/v1/branches/aaaaaaaa-0001-4000-8000-000000000001/chat-agents
 ```
 
 ### 5. Access via Helpdesk API CRM Proxy
+
 ```bash
 curl -H "x-mock-identity: super_admin" \
   http://localhost:4000/api/v1/crm/tenants
 ```
 
 ### 6. Verify Cross-Tenant Isolation Enforcement
+
 Attempting to access Tenant Alpha data with `beta_admin` identity:
+
 ```bash
 curl -H "x-mock-identity: beta_admin" \
   http://localhost:4001/api/v1/tenants/11111111-1111-4000-8000-000000000001
 ```
+
 Response:
+
 ```json
 {
   "error": {
@@ -243,6 +263,7 @@ npm run format
 ## 10. Recommended Next Milestone
 
 **Milestone 2 — Supabase Staging Persistence & WhatsApp Helpdesk Schema**
+
 - Initialize Supabase PostgreSQL database schemas.
 - Implement helpdesk-specific tables (Conversations, Messages, Leads, Agent Routing Configurations).
 - Implement database migration scripts and seed scripts.
