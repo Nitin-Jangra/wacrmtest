@@ -1,0 +1,10 @@
+node_modules/
+dist/
+coverage/
+.agent/
+.agents/
+.gemini/
+.gsd/templates/
+.gsd/examples/
+adapters/
+scripts/

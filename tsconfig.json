@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@gym-helpdesk/shared-types": ["packages/shared-types/src"]
+    }
+  },
+  "include": ["packages/*/src/**/*", "apps/*/src/**/*", "tests/**/*"]
+}

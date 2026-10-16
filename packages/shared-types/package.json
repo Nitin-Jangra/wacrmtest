@@ -1,0 +1,14 @@
+{
+  "name": "@gym-helpdesk/shared-types",
+  "version": "1.0.0",
+  "description": "Shared domain models and contracts for Gym WhatsApp Helpdesk",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "zod": "^3.24.2"
+  }
+}
