@@ -1,18 +1,21 @@
-# Gym WhatsApp Helpdesk — Mock CRM API & Staging Foundation
+# Gym WhatsApp Helpdesk — Mock CRM API & Persistent Staging Foundation
 
-[![Tests](https://img.shields.io/badge/tests-67%2F67%20passing-brightgreen.svg)](<>)
+[![Tests](https://img.shields.io/badge/tests-102%2F102%20passing-brightgreen.svg)](<>)
 [![TypeScript](https://img.shields.io/badge/typescript-strict-blue.svg)](<>)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D18.0.0-green.svg)](<>)
+[![Database](https://img.shields.io/badge/database-Supabase%20PostgreSQL-3ECF8E.svg)](<>)
 
-Production-oriented, multi-tenant foundation for the **Gym WhatsApp Helpdesk** system. This milestone delivers a standalone **Mock CRM API** simulating an external multi-tenant gym CRM hierarchy, alongside the main **Helpdesk API** communicating exclusively through a pluggable **CRM Integration Adapter**.
+Production-oriented, multi-tenant foundation for the **Gym WhatsApp Helpdesk** system. This milestone delivers a standalone **Mock CRM API** simulating an external multi-tenant gym CRM hierarchy, alongside the main **Helpdesk API** backed by a **Supabase PostgreSQL** staging database and communicating with the CRM exclusively through a pluggable **CRM Integration Adapter**.
 
 ---
 
 ## 1. Architectural Highlights
 
-- **External CRM as Source of Truth**: The CRM owns tenants, branches, employees, designations, and permissions. The helpdesk application will maintain its own database (Supabase) in subsequent milestones for conversations, leads, and assignment rules without duplicating CRM management.
-- **Pluggable CRM Adapter Pattern**: The Helpdesk core interacts with CRM entities solely through the `ICrmAdapter` interface (`apps/api/src/integrations/crm/crm.interface.ts`). Switch between in-memory simulation (`MockCrmAdapter`) and networked HTTP calls (`HttpCrmAdapter`) via configuration.
-- **Strict Multi-Tenant Isolation**: Tenant Alpha users cannot access Tenant Beta data; branch admins cannot query branches outside their branch scope.
+- **External CRM as Sole Source of Truth**: The CRM exclusively owns tenants, branches, employees, designations, and permissions. The helpdesk application maintains its own operational database (Supabase) for channels, leads, conversations, messages, follow-ups, agent settings, and audit logs without duplicating CRM master records.
+- **Fail-Closed Database Architecture**: In-memory database fallback is strictly forbidden. If Supabase credentials are missing or the connection fails, the API throws an explicit `DatabaseConfigurationError` (HTTP 503), preventing silent data loss or phantom state.
+- **Multi-Tenant Composite Keys & Integrity**: Relationships enforce cross-tenant and cross-branch alignment at both the application layer (`helpdesk.service.ts`) and the database layer (PostgreSQL composite foreign keys and check constraints).
+- **Row-Level Security (RLS)**: Enabled across all 11 helpdesk tables with tenant-scoped policies and immutable triggers on audit tables.
+- **Pluggable CRM Adapter Pattern**: The Helpdesk core interacts with CRM entities solely through the `ICrmAdapter` interface. Switch between in-memory simulation (`MockCrmAdapter`) and networked HTTP calls (`HttpCrmAdapter`) via configuration.
 - **Zero Production Risk**: Mock authentication strictly rejects execution if `NODE_ENV=production`.
 
 ---
@@ -22,15 +25,23 @@ Production-oriented, multi-tenant foundation for the **Gym WhatsApp Helpdesk** s
 ```
 gym-whatsapp-helpdesk/
 ├── apps/
-│   ├── api/                          # Main Helpdesk Express API & Adapter Proxy
+│   ├── api/                          # Main Helpdesk Express API & Persistence Layer
 │   │   └── src/
-│   │       ├── config/               # Zod environment configuration
-│   │       ├── middleware/           # Centralized error handling
-│   │       ├── modules/
-│   │       │   ├── health/           # Public service & downstream health check
-│   │       │   └── crm-proxy/        # Endpoints proxying CRM data via adapter
-│   │       ├── integrations/
-│   │       │   └── crm/              # Adapter interface, mock adapter, and HTTP adapter
+│   │       ├── config/               # Zod environment configuration (includes Supabase)
+│   │       ├── database/             # Supabase client, fail-fast checks, custom errors
+│   │       ├── middleware/           # Centralized error handling (DatabaseError, CrmError, Zod)
+│   │       ├── modules/              # REST Endpoints
+│   │       │   ├── health/           # Service & database connectivity health checks
+│   │       │   ├── crm-proxy/        # Endpoints proxying CRM data via adapter
+│   │       │   ├── channels/         # WhatsApp Channel provisioning
+│   │       │   ├── agent-settings/   # Agent chat eligibility and routing settings
+│   │       │   ├── leads/            # Inbound prospect/lead management
+│   │       │   ├── conversations/    # Threads and conversation messaging
+│   │       │   ├── follow-ups/       # Agent reminders and task follow-ups
+│   │       │   └── webhook-events/   # Idempotent webhook event ledger
+│   │       ├── repositories/         # Supabase PostgreSQL repository implementations
+│   │       ├── services/             # Domain logic & CRM integrity validation
+│   │       ├── integrations/crm/     # Adapter interface, mock adapter, and HTTP adapter
 │   │       ├── app.ts                # Express app factory
 │   │       └── server.ts             # Helpdesk server entrypoint (port 4000)
 │   │
@@ -46,225 +57,108 @@ gym-whatsapp-helpdesk/
 │           └── server.ts             # Mock CRM server entrypoint (port 4001)
 │
 ├── packages/
-│   └── shared-types/                 # Shared domain contracts, enums & Zod schemas
+│   └── shared-types/                 # Shared domain contracts, enums & Zod DTO schemas
+│
+├── supabase/
+│   ├── config.toml                   # Supabase configuration
+│   ├── seed.sql                      # Repeatable deterministic test fixtures (ON CONFLICT DO NOTHING)
+│   └── migrations/
+│       ├── 20261017000001_create_core_helpdesk_tables.sql  # 11 core tables
+│       ├── 20261017000002_add_constraints_and_indexes.sql  # Composite FKs, checks, indexes
+│       └── 20261017000003_configure_rls_and_triggers.sql   # RLS policies & immutable audit trigger
 │
 ├── tests/
-│   ├── unit/                         # Unit tests (repository, validation, schemas)
-│   ├── integration/                  # Integration tests (mock-crm-api, http adapter, proxy)
-│   └── security/                     # Security isolation & RBAC enforcement tests
+│   ├── unit/                         # Unit tests (schema, fail-close, repositories, CRM)
+│   ├── integration/                  # Integration tests (integrity, adapters, mock CRM API)
+│   └── security/                     # Security isolation & multi-tenant boundary tests
 │
 ├── docs/
+│   ├── database-design.md            # Schema, ERD, indexes, RLS policies, and staging runbook
 │   ├── architecture.md               # Detailed system architecture and sequence flows
 │   ├── api-contracts.md              # Full endpoint contracts, request/response formats
 │   ├── data-model.md                 # Entity definitions and deterministic seed dictionary
 │   └── testing.md                    # Test execution strategy and security test catalog
-│
-├── .env.example                      # Environment variables template
-├── .gitignore
-├── package.json                      # Workspaces configuration and root scripts
-├── tsconfig.base.json                # Shared strict TypeScript configuration
-├── eslint.config.js                  # ESLint 9 flat configuration
-├── .prettierrc.json                  # Prettier formatting rules
-└── README.md
 ```
 
 ---
 
-## 3. Quickstart & Reproducible Setup
+## 3. Quick Start & Setup
 
 ### Prerequisites
+- Node.js >= 18.0.0
+- npm >= 9.0.0
+- (Optional) Supabase staging project or Supabase CLI
 
-- **Node.js** >= 18.0.0 (Tested on Node.js v24.21.0)
-- **npm** >= 9.0.0
-
-### Step 1: Install Dependencies
-
+### 1. Installation & Build
 ```bash
+# Install root dependencies and workspaces
 npm install
+
+# Build shared types package
+npm run build --workspace=@gym-helpdesk/shared-types
+
+# Typecheck all workspaces
+npm run typecheck
 ```
 
-### Step 2: Configure Environment
-
-Copy the `.env.example` file to `.env`:
-
+### 2. Configure Environment
+Copy `.env.example` to `.env`:
 ```bash
 cp .env.example .env
 ```
+Ensure `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are populated with your staging credentials.
 
-Default `.env` configuration:
+### 3. Apply Migrations & Seed Staging Database
+```bash
+# Push migrations to Supabase
+supabase db push
 
-```ini
-NODE_ENV=development
-API_PORT=4000
-MOCK_CRM_PORT=4001
-CORS_ORIGIN=http://localhost:3000,http://localhost:4000,http://localhost:4001
-MOCK_AUTH_ENABLED=true
-CRM_ADAPTER=http
-MOCK_CRM_BASE_URL=http://localhost:4001
-MOCK_CRM_SERVICE_TOKEN=dev-service-token-secret-change-in-prod
+# Or apply manually using psql:
+psql "$DATABASE_URL" -f supabase/migrations/20261017000001_create_core_helpdesk_tables.sql
+psql "$DATABASE_URL" -f supabase/migrations/20261017000002_add_constraints_and_indexes.sql
+psql "$DATABASE_URL" -f supabase/migrations/20261017000003_configure_rls_and_triggers.sql
+psql "$DATABASE_URL" -f supabase/seed.sql
 ```
 
-### Step 3: Compile Packages
-
+### 4. Running Services Locally
 ```bash
-npm run build
-```
-
----
-
-## 4. Running the Applications
-
-### Run Both Services Concurrently
-
-Starts both Mock CRM API (`:4001`) and Helpdesk API (`:4000`) simultaneously:
-
-```bash
+# Start both Mock CRM API (port 4001) and Helpdesk API (port 4000) concurrently:
 npm run dev
-```
 
-### Run Services Independently
-
-Run Mock CRM API only:
-
-```bash
-npm run dev:mock-crm
-```
-
-Run Helpdesk API only:
-
-```bash
-npm run dev:api
+# Or start services individually:
+npm run dev:crm       # Mock CRM API on http://localhost:4001
+npm run dev:api       # Helpdesk API on http://localhost:4000
 ```
 
 ---
 
-## 5. Development Test Identities
+## 4. Automated Test Suite
 
-Use the `x-mock-identity` header in API requests:
-
-| Header Value         | Role         | Tenant       | Branch Scope         | Permissions                   |
-| -------------------- | ------------ | ------------ | -------------------- | ----------------------------- |
-| `super_admin`        | Super Admin  | Global       | All branches         | Full platform permissions     |
-| `alpha_admin`        | Tenant Admin | Tenant Alpha | All Alpha branches   | Manage Tenant Alpha           |
-| `alpha_branch_admin` | Branch Admin | Tenant Alpha | Greater Noida branch | Read Alpha, manage branch     |
-| `alpha_employee`     | Employee     | Tenant Alpha | Greater Noida branch | Read assigned branch & agents |
-| `beta_admin`         | Tenant Admin | Tenant Beta  | All Beta branches    | Manage Tenant Beta            |
-| `beta_branch_admin`  | Branch Admin | Tenant Beta  | Jaipur branch        | Read Beta, manage branch      |
-| `beta_employee`      | Employee     | Tenant Beta  | Jaipur branch        | Read assigned branch & agents |
-
-Alternatively, automated service requests can pass:
-`Authorization: Bearer dev-service-token-secret-change-in-prod`
-
----
-
-## 6. Example API Requests
-
-### 1. Public Health Check
-
+Run the full automated test suite (102 tests across 12 test files):
 ```bash
-curl http://localhost:4001/health
-```
-
-### 2. Inspect Current Identity & Scope
-
-```bash
-curl -H "x-mock-identity: alpha_admin" http://localhost:4001/api/v1/me
-```
-
-### 3. List Branches for Tenant Alpha
-
-```bash
-curl -H "x-mock-identity: alpha_admin" \
-  http://localhost:4001/api/v1/tenants/11111111-1111-4000-8000-000000000001/branches
-```
-
-### 4. Fetch Eligible Chat Agents for Branch
-
-```bash
-curl -H "x-mock-identity: alpha_branch_admin" \
-  http://localhost:4001/api/v1/branches/aaaaaaaa-0001-4000-8000-000000000001/chat-agents
-```
-
-### 5. Access via Helpdesk API CRM Proxy
-
-```bash
-curl -H "x-mock-identity: super_admin" \
-  http://localhost:4000/api/v1/crm/tenants
-```
-
-### 6. Verify Cross-Tenant Isolation Enforcement
-
-Attempting to access Tenant Alpha data with `beta_admin` identity:
-
-```bash
-curl -H "x-mock-identity: beta_admin" \
-  http://localhost:4001/api/v1/tenants/11111111-1111-4000-8000-000000000001
-```
-
-Response:
-
-```json
-{
-  "error": {
-    "code": "CROSS_TENANT_ACCESS_FORBIDDEN",
-    "message": "Access denied: You are not authorized to access this tenant."
-  }
-}
-```
-
----
-
-## 7. Automated Testing Suite
-
-All tests are implemented with Vitest and Supertest:
-
-```bash
-# Run all tests
 npm test
-
-# Run unit tests (repository, validation, domain logic)
-npm run test:unit
-
-# Run integration tests (REST endpoints, HTTP adapter roundtrip, CRM proxy)
-npm run test:integration
-
-# Run security tests (tenant isolation, RBAC, UUID validation, production safety)
-npm run test:security
 ```
 
----
-
-## 8. Code Quality & Verification Commands
-
-```bash
-# Typecheck all packages with TypeScript strict mode
-npm run typecheck
-
-# Lint codebase with ESLint
-npm run lint
-
-# Check formatting with Prettier
-npm run format:check
-
-# Auto-format all files
-npm run format
-```
-
----
-
-## 9. Security Limitations of the Mock Environment
-
-1. **Development Header Auth**: The `x-mock-identity` header is designed strictly for local development and integration testing. It does not replace real JWT, OAuth2, or Mutual TLS authentication.
-2. **In-Memory Fixtures**: The mock CRM repository stores data in memory. Changes during runtime are not persisted across server restarts.
-3. **No Real Customer Data**: All names, email addresses (`@example.com`), and phone records are fictional test data.
+### Test Catalog
+| Suite | File | Tests | Coverage Scope |
+|:---|:---|:---:|:---|
+| **Unit** | `database-schema.test.ts` | 5 | Validates all 11 tables, constraints, indexes, RLS, seed idempotence |
+| **Unit** | `database-failclose.test.ts` | 2 | Validates fail-closed behavior when Supabase credentials are missing |
+| **Unit** | `helpdesk-repositories.test.ts` | 6 | Repository CRUD and pagination queries |
+| **Unit** | `crm-repository.test.ts` | 11 | In-memory CRM repository data operations |
+| **Unit** | `uuid-validation.test.ts` | 8 | UUID string format and injection validation |
+| **Unit** | `integrity-validator.test.ts` | 5 | CRM relationship integrity checks |
+| **Integration** | `helpdesk-integrity.test.ts` | 10 | Validates all 10 integrity rules from Section 12.C |
+| **Integration** | `mock-crm-api.test.ts` | 15 | REST endpoints of standalone Mock CRM |
+| **Integration** | `http-crm-adapter.test.ts` | 13 | Networked adapter against Mock CRM API |
+| **Integration** | `api-crm-proxy.test.ts` | 5 | Helpdesk API CRM proxy routes |
+| **Security** | `security-tenant-isolation.test.ts` | 10 | Mock CRM multi-tenant and branch boundaries |
+| **Security** | `helpdesk-tenant-isolation.test.ts` | 12 | Helpdesk persistence cross-tenant isolation and query filtering |
+| **Total** | **12 test suites** | **102** | **100% Passing** |
 
 ---
 
-## 10. Recommended Next Milestone
-
-**Milestone 2 — Supabase Staging Persistence & WhatsApp Helpdesk Schema**
-
-- Initialize Supabase PostgreSQL database schemas.
-- Implement helpdesk-specific tables (Conversations, Messages, Leads, Agent Routing Configurations).
-- Implement database migration scripts and seed scripts.
-- Integrate the real helpdesk persistence layer alongside the `HttpCrmAdapter`.
+## 5. Next Milestone: Phase 3
+- Lead distribution & routing engine (round-robin, weighted, least-active)
+- WhatsApp Cloud API webhook ingestion and status notifications
+- Inbound chat session state transitions and conversation lifecycle

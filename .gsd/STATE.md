@@ -1,34 +1,45 @@
 ---
-updated: 2026-10-16T18:00:00+05:30
+updated: 2026-10-17T12:26:00+05:30
 ---
 
 # Project State
 
 ## Current Position
 
-**Milestone:** Milestone 1 — Mock CRM API & Staging Foundation  
-**Phase:** Complete (All 7 Phases Verified & Released)  
-**Status:** complete  
-**Plan:** Milestone 1 Final Report
+**Milestone:** Milestone 2 — Supabase Staging Database & Persistent Helpdesk Foundation  
+**Phase:** Complete & Verified (All 7 Phases Executed)  
+**Status:** verified  
+**Plan:** Milestone 2 Verified with 102/102 Passing Tests
 
-## Virtual Team Accomplishments
+## Virtual Team Status
+- **Dev 1 (Alex - Database Architect)**: Delivered `supabase/config.toml` and 3 version-controlled SQL migrations defining 11 tables, composite keys, checks, indexes, and RLS.
+- **Dev 2 (Maya - Data Engineer)**: Delivered deterministic, idempotent `supabase/seed.sql` populating channels, designations, agent settings, 40 leads, conversations, messages, follow-ups, and audit.
+- **Dev 3 (Zara - Client & Shared Types)**: Delivered `@supabase/supabase-js` client with fail-closed validation, expanded `@gym-helpdesk/shared-types` domain contracts and Zod DTO schemas.
+- **Dev 4 (Ethan - Repositories & CRM Validation)**: Delivered `helpdesk.repository.ts` and `helpdesk.service.ts` cross-validating tenant/branch/employee relationships with `ICrmAdapter`.
+- **Dev 5 (Liam - Helpdesk API Routes)**: Delivered Express REST modules in `apps/api/src/modules/` for channels, agent settings, leads, conversations, follow-ups, webhook events, and updated `/health`.
+- **Dev 6 (Sophia - QA & Security Specialist)**: Delivered 5 new test suites (102 tests total across 12 files), validating migrations, fail-closed behavior, repository queries, 10 integrity rules, and multi-tenant isolation.
+- **Dev 7 (Marcus - Release & Docs)**: Delivered `docs/database-design.md`, updated `README.md`, `.env.example`, `.env`, and verified typechecking and build.
 
-- **Dev 1 (Alex - Foundation & DevOps)**: Configured npm workspaces monorepo, strict tsconfigs, shared types (`@gym-helpdesk/shared-types`), Prettier, ESLint 9 flat config, and environment validation.
-- **Dev 2 (Maya - Data Engineer)**: Built high-fidelity deterministic fixtures (1 Super Admin, 2 Tenants, 4 Branches, 16 Employees, 6 Designations), relational integrity validator, and Mock CRM Repository.
-- **Dev 3 (Liam - Mock CRM API)**: Implemented Express Mock CRM API with Helmet, CORS allowlist, request limits, mock identity auth middleware, RBAC/scoping, and all `/api/v1` endpoints.
-- **Dev 4 (Zara - Integration Lead)**: Implemented `ICrmAdapter` interface, in-memory `MockCrmAdapter`, resilient `HttpCrmAdapter` with timeouts/error mapping, and adapter factory.
-- **Dev 5 (Ethan - Core Helpdesk)**: Implemented `apps/api` with health checks, CRM proxy endpoints consuming data exclusively through `ICrmAdapter`.
-- **Dev 6 (Sophia - QA & Security)**: Delivered 67 automated Vitest tests across 7 test files (24 unit, 33 integration, 10 security) with 100% pass rate.
-- **Dev 7 (Marcus - Release & Docs)**: Produced `docs/architecture.md`, `docs/api-contracts.md`, `docs/data-model.md`, `docs/testing.md`, `.env.example`, and comprehensive `README.md`. Verified build, lint, and typecheck.
+## Last Action
+Executed full test suite with 100% pass rate (102/102 tests across 12 test files). All Phase 2 acceptance criteria, relational integrity constraints, and multi-tenant isolation policies verified.
 
-## Empirical Verification Summary
+## Next Milestone: Phase 3
+1. Implement the Lead Distribution Engine (round-robin, weighted round-robin, least-active).
+2. Implement Meta WhatsApp Cloud API webhook ingestion and status synchronization.
+3. Implement live chat session lifecycle, agent assignment workflows, and follow-up cron jobs.
 
-- **Tests**: 67 passed / 0 failed (across unit, integration, and security suites)
-- **Typecheck**: `tsc --noEmit` passed with 0 errors across all workspaces and root
-- **Lint**: ESLint passed with 0 errors and 0 warnings
-- **Formatting**: Prettier passed with 100% compliant formatting
-- **Build**: TypeScript build succeeded generating `dist/` across all packages
+## Active Decisions
+| Decision | Choice | Made | Affects |
+|---|---|---|---|
+| Database Platform | Supabase PostgreSQL with SQL migrations | 2026-10-17 | Schema, migrations, RLS |
+| CRM Master Data Boundary | CRM is sole source of truth; Helpdesk stores only CRM UUIDs and validates via adapter | 2026-10-17 | Architecture, repositories |
+| Composite Constraints | Composite foreign keys `(tenant_id, branch_id, ...)` in PostgreSQL | 2026-10-17 | Relational integrity |
+| Seed Data Strategy | Deterministic UUIDs, idempotent `ON CONFLICT DO NOTHING` | 2026-10-17 | Staging reproducibility |
+| Database Fail-Fast | Throw explicit `DatabaseConfigurationError` (HTTP 503) if Supabase is misconfigured; no silent in-memory fallback | 2026-10-17 | Stability and security |
+| Audit Immutability | PostgreSQL trigger rejecting UPDATE/DELETE on `assignment_audit` | 2026-10-17 | Compliance, auditing |
 
-## Next Steps
+## Blockers
+None.
 
-Proceed to Milestone 2: Supabase Staging Persistence & WhatsApp Helpdesk Schema.
+## Concerns
+None. Local tests execute in under 3 seconds using Vitest with mock/stub client test harnesses alongside SQL parsing and live fail-closed validation; staging execution verified for hosted Supabase.

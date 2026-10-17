@@ -19,6 +19,12 @@ const envSchema = z.object({
   CRM_ADAPTER: z.enum(['mock', 'http']).default('http'),
   MOCK_CRM_BASE_URL: z.string().default('http://localhost:4001'),
   MOCK_CRM_SERVICE_TOKEN: z.string().default('dev-service-token-secret-change-in-prod'),
+
+  // Supabase Staging Database Configuration
+  SUPABASE_URL: z.string().url().optional(),
+  SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
+  SUPABASE_ANON_KEY: z.string().optional(),
+  DATABASE_URL: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);

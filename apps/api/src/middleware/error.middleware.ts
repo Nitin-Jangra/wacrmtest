@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
 import { CrmError } from '../integrations/crm/crm.errors';
+import { DatabaseError } from '../database/database.errors';
 import { config } from '../config';
 
 export function errorHandler(err: Error, _req: Request, res: Response, _next: NextFunction): void {
@@ -16,7 +17,19 @@ export function errorHandler(err: Error, _req: Request, res: Response, _next: Ne
     return;
   }
 
-  // 2. Zod Validation Errors
+  // 2. Database Errors
+  if (err instanceof DatabaseError) {
+    res.status(err.statusCode).json({
+      error: {
+        code: err.code,
+        message: err.message,
+        details: err.details,
+      },
+    });
+    return;
+  }
+
+  // 3. Zod Validation Errors
   if (err instanceof ZodError) {
     res.status(400).json({
       error: {
@@ -31,7 +44,7 @@ export function errorHandler(err: Error, _req: Request, res: Response, _next: Ne
     return;
   }
 
-  // 3. Fallback unhandled error
+  // 4. Fallback unhandled error
   const isProduction = config.NODE_ENV === 'production';
   res.status(500).json({
     error: {

@@ -130,6 +130,19 @@ export class MockCrmAdapter implements ICrmAdapter {
       createdAt: '2026-01-06T00:00:00.000Z',
       updatedAt: '2026-01-06T00:00:00.000Z',
     },
+    {
+      id: 'e2222222-0001-4000-8000-000000000001',
+      tenantId: '22222222-2222-4000-8000-000000000002',
+      branchId: 'bbbbbbbb-0001-4000-8000-000000000001',
+      fullName: 'Vikram Rathore',
+      email: 'vikram.rathore@example.com',
+      status: 'active',
+      crmRole: 'tenant_admin',
+      chatSupportEligible: false,
+      designationId: null,
+      createdAt: '2026-01-20T00:00:00.000Z',
+      updatedAt: '2026-01-20T00:00:00.000Z',
+    },
   ];
 
   public async checkHealth(): Promise<{ status: string; service: string; version: string }> {
