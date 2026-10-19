@@ -1,0 +1,22 @@
+# Netlify Configuration for M Square Professionals WhatsApp Helpdesk
+
+[build]
+  command = "npm run build:dashboard"
+  publish = "apps/dashboard/dist"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+# SPA routing redirect - all client routes fallback to index.html
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Optional backend proxy: If you deploy your backend API (e.g. on Render/Railway),
+# uncomment the redirect below and replace with your backend API URL:
+# [[redirects]]
+#   from = "/api/*"
+#   to = "https://your-api-service.onrender.com/api/:splat"
+#   status = 200
+#   force = true

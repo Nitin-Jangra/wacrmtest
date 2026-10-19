@@ -6,6 +6,7 @@ import {
   EligibleChatAgent,
   CurrentIdentityResponse,
   ApiResponse,
+  MockIdentity,
 } from '@gym-helpdesk/shared-types';
 import { ICrmAdapter, CrmGenericFilters, CrmEmployeeFilters } from './crm.interface';
 import { CrmNotFoundError, CrmAuthorizationError } from './crm.errors';
@@ -286,40 +287,111 @@ export class MockCrmAdapter implements ICrmAdapter {
     });
   }
 
+  private mockIdentities: Record<string, MockIdentity> = {
+    super_admin: {
+      key: 'super_admin',
+      userId: '00000000-0000-4000-8000-000000000001',
+      name: 'Alex Vance (Super Admin)',
+      email: 'superadmin@example.com',
+      role: 'super_admin',
+      tenantId: null,
+      branchId: null,
+      permissions: [
+        'tenants:read',
+        'branches:read',
+        'employees:read',
+        'designations:read',
+        'chat_agents:read',
+      ],
+    },
+    alpha_admin: {
+      key: 'alpha_admin',
+      userId: 'e1111111-0005-4000-8000-000000000005',
+      name: 'Rohan Mehta (Alpha Admin)',
+      email: 'rohan.mehta@example.com',
+      role: 'tenant_admin',
+      tenantId: '11111111-1111-4000-8000-000000000001',
+      branchId: null,
+      permissions: [
+        'tenants:read',
+        'branches:read',
+        'employees:read',
+        'designations:read',
+        'chat_agents:read',
+      ],
+    },
+    alpha_branch_admin: {
+      key: 'alpha_branch_admin',
+      userId: 'e1111111-0001-4000-8000-000000000001',
+      name: 'Aarav Sharma (Alpha Greater Noida Admin)',
+      email: 'aarav.sharma@example.com',
+      role: 'branch_admin',
+      tenantId: '11111111-1111-4000-8000-000000000001',
+      branchId: 'aaaaaaaa-0001-4000-8000-000000000001',
+      permissions: ['branches:read', 'employees:read', 'designations:read', 'chat_agents:read'],
+    },
+    alpha_employee: {
+      key: 'alpha_employee',
+      userId: 'e1111111-0002-4000-8000-000000000002',
+      name: 'Diya Patel (Alpha Greater Noida Employee)',
+      email: 'diya.patel@example.com',
+      role: 'employee',
+      tenantId: '11111111-1111-4000-8000-000000000001',
+      branchId: 'aaaaaaaa-0001-4000-8000-000000000001',
+      permissions: ['branches:read', 'employees:read'],
+    },
+    beta_admin: {
+      key: 'beta_admin',
+      userId: 'e2222222-0001-4000-8000-000000000001',
+      name: 'Vikram Rathore (Beta Admin)',
+      email: 'vikram.rathore@example.com',
+      role: 'tenant_admin',
+      tenantId: '22222222-2222-4000-8000-000000000002',
+      branchId: null,
+      permissions: [
+        'tenants:read',
+        'branches:read',
+        'employees:read',
+        'designations:read',
+        'chat_agents:read',
+      ],
+    },
+    beta_branch_admin: {
+      key: 'beta_branch_admin',
+      userId: 'e2222222-0002-4000-8000-000000000002',
+      name: 'Meera Joshi (Beta Jaipur Admin)',
+      email: 'meera.joshi@example.com',
+      role: 'branch_admin',
+      tenantId: '22222222-2222-4000-8000-000000000002',
+      branchId: 'bbbbbbbb-0001-4000-8000-000000000001',
+      permissions: ['branches:read', 'employees:read', 'designations:read', 'chat_agents:read'],
+    },
+    beta_employee: {
+      key: 'beta_employee',
+      userId: 'e2222222-0003-4000-8000-000000000003',
+      name: 'Karan Malhotra (Beta Jaipur Employee)',
+      email: 'karan.malhotra@example.com',
+      role: 'employee',
+      tenantId: '22222222-2222-4000-8000-000000000002',
+      branchId: 'bbbbbbbb-0001-4000-8000-000000000001',
+      permissions: ['branches:read', 'employees:read'],
+    },
+  };
+
   public async getCurrentIdentity(
     identityKey: string = 'super_admin',
   ): Promise<CurrentIdentityResponse> {
-    if (identityKey === 'invalid_key') {
+    if (identityKey === 'invalid_key' || !this.mockIdentities[identityKey]) {
       throw new CrmAuthorizationError('Invalid identity key');
     }
+    const id = this.mockIdentities[identityKey]!;
     return {
-      identity: {
-        key: 'super_admin',
-        userId: '00000000-0000-4000-8000-000000000001',
-        name: 'Alex Vance (Super Admin)',
-        email: 'superadmin@example.com',
-        role: 'super_admin',
-        tenantId: null,
-        branchId: null,
-        permissions: [
-          'tenants:read',
-          'branches:read',
-          'employees:read',
-          'designations:read',
-          'chat_agents:read',
-        ],
-      },
+      identity: { ...id },
       scope: {
-        isSuperAdmin: true,
-        authorizedTenantId: null,
-        authorizedBranchId: null,
-        allowedPermissions: [
-          'tenants:read',
-          'branches:read',
-          'employees:read',
-          'designations:read',
-          'chat_agents:read',
-        ],
+        isSuperAdmin: id.role === 'super_admin',
+        authorizedTenantId: id.tenantId,
+        authorizedBranchId: id.branchId,
+        allowedPermissions: [...id.permissions],
       },
     };
   }

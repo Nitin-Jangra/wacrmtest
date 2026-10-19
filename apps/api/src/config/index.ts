@@ -25,6 +25,15 @@ const envSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
   SUPABASE_ANON_KEY: z.string().optional(),
   DATABASE_URL: z.string().optional(),
+
+  // WhatsApp Cloud API Configuration
+  WHATSAPP_PROVIDER: z.enum(['mock', 'cloud_api']).default('mock'),
+  WHATSAPP_ACCESS_TOKEN: z.string().optional(),
+  WHATSAPP_PHONE_NUMBER_ID: z.string().optional(),
+  WHATSAPP_BUSINESS_ACCOUNT_ID: z.string().optional(),
+  WHATSAPP_API_VERSION: z.string().default('v21.0'),
+  WHATSAPP_WEBHOOK_VERIFY_TOKEN: z.string().default('dev-verify-token'),
+  WHATSAPP_APP_SECRET: z.string().default('dev-app-secret'),
 });
 
 const parsed = envSchema.safeParse(process.env);

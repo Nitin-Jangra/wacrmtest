@@ -12,18 +12,26 @@ describe('Helpdesk API CRM Proxy Integration Tests', () => {
   let mockCrmServer: http.Server;
 
   beforeAll(async () => {
-    // Start mock-crm-api on default port 4001 or ensure server is accessible
+    // Start mock-crm-api on default port 4001 or reuse if already running
     await new Promise<void>((resolve) => {
       mockCrmServer = mockCrmApp.listen(4001, () => {
         resolve();
+      });
+      mockCrmServer.on('error', (err: any) => {
+        if (err.code === 'EADDRINUSE') {
+          // Port 4001 is already active, proceed
+          resolve();
+        }
       });
     });
   });
 
   afterAll(async () => {
-    await new Promise<void>((resolve) => {
-      mockCrmServer.close(() => resolve());
-    });
+    if (mockCrmServer && mockCrmServer.listening) {
+      await new Promise<void>((resolve) => {
+        mockCrmServer.close(() => resolve());
+      });
+    }
   });
 
   it('should verify /health reports healthy status and connected CRM', async () => {

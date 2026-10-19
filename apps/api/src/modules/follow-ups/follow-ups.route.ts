@@ -1,5 +1,5 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { CreateFollowUpSchema, UuidSchema } from '@gym-helpdesk/shared-types';
+import { CreateFollowUpSchema, UpdateFollowUpSchema, UuidSchema } from '@gym-helpdesk/shared-types';
 import { helpdeskService } from '../../services/helpdesk.service';
 
 export const followUpsRouter = Router();
@@ -37,6 +37,10 @@ followUpsRouter.get('/', async (req: Request, res: Response, next: NextFunction)
   try {
     const tenantId = req.query.tenantId ? UuidSchema.parse(req.query.tenantId) : undefined;
     const branchId = req.query.branchId ? UuidSchema.parse(req.query.branchId) : undefined;
+    const conversationId = req.query.conversationId ? UuidSchema.parse(req.query.conversationId) : undefined;
+    const assignedEmployeeId = req.query.assignedEmployeeId
+      ? UuidSchema.parse(req.query.assignedEmployeeId)
+      : undefined;
     const status = req.query.status as string | undefined;
 
     if (!tenantId) {
@@ -44,8 +48,26 @@ followUpsRouter.get('/', async (req: Request, res: Response, next: NextFunction)
       return;
     }
 
-    const followUps = await helpdeskService.listFollowUps(tenantId, branchId, status);
+    const followUps = await helpdeskService.listFollowUps(
+      tenantId,
+      branchId,
+      status,
+      conversationId,
+      assignedEmployeeId,
+    );
     res.status(200).json({ data: followUps });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// PATCH /api/v1/follow-ups/:id
+followUpsRouter.patch('/:id', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const id = UuidSchema.parse(req.params.id);
+    const body = UpdateFollowUpSchema.parse(req.body);
+    const updated = await helpdeskService.updateFollowUp(id, body);
+    res.status(200).json({ data: updated });
   } catch (err) {
     next(err);
   }

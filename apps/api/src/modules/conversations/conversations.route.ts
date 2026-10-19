@@ -2,10 +2,15 @@ import { Router, Request, Response, NextFunction } from 'express';
 import {
   CreateConversationSchema,
   CreateMessageSchema,
+  SendTextMessageSchema,
   PaginationQuerySchema,
   UuidSchema,
+  AssignConversationSchema,
+  UpdateConversationStatusSchema,
 } from '@gym-helpdesk/shared-types';
 import { helpdeskService } from '../../services/helpdesk.service';
+import { assignmentService } from '../../services/assignment/assignment.service';
+import { whatsappMessagingService } from '../../services/whatsapp/whatsapp-messaging.service';
 
 export const conversationsRouter = Router();
 
@@ -41,6 +46,9 @@ conversationsRouter.get('/', async (req: Request, res: Response, next: NextFunct
   try {
     const tenantId = req.query.tenantId ? UuidSchema.parse(req.query.tenantId) : undefined;
     const branchId = req.query.branchId ? UuidSchema.parse(req.query.branchId) : undefined;
+    const assignedEmployeeId = req.query.assignedEmployeeId
+      ? UuidSchema.parse(req.query.assignedEmployeeId)
+      : undefined;
     const status = req.query.status as string | undefined;
     const query = PaginationQuerySchema.parse(req.query);
 
@@ -49,7 +57,14 @@ conversationsRouter.get('/', async (req: Request, res: Response, next: NextFunct
       return;
     }
 
-    const result = await helpdeskService.listConversations(tenantId, branchId, status, query.page, query.limit);
+    const result = await helpdeskService.listConversations(
+      tenantId,
+      branchId,
+      status,
+      query.page,
+      query.limit,
+      assignedEmployeeId,
+    );
     res.status(200).json({
       data: result.data,
       meta: {
@@ -59,6 +74,19 @@ conversationsRouter.get('/', async (req: Request, res: Response, next: NextFunct
         totalPages: Math.ceil(result.total / query.limit) || 1,
       },
     });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// PATCH /api/v1/conversations/:id/status
+conversationsRouter.patch('/:id/status', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const id = UuidSchema.parse(req.params.id);
+    const body = UpdateConversationStatusSchema.parse(req.body);
+    const identityKey = getCallerIdentityKey(req);
+    const updated = await helpdeskService.updateConversationStatus(id, body.status, identityKey);
+    res.status(200).json({ data: updated });
   } catch (err) {
     next(err);
   }
@@ -79,6 +107,24 @@ conversationsRouter.get('/:id', async (req: Request, res: Response, next: NextFu
 conversationsRouter.post('/:id/messages', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const conversationId = UuidSchema.parse(req.params.id);
+    const identityKey = getCallerIdentityKey(req);
+
+    // If request matches text message sending payload (e.g. { type: 'text', text: '...' })
+    const textParse = SendTextMessageSchema.safeParse(req.body);
+    if (textParse.success) {
+      const message = await whatsappMessagingService.sendTextMessage(
+        conversationId,
+        textParse.data.text,
+        identityKey,
+      );
+      res.status(201).json({
+        data: message,
+        status: message.deliveryStatus,
+      });
+      return;
+    }
+
+    // Fallback to direct raw message persistence
     const body = CreateMessageSchema.parse(req.body);
     const message = await helpdeskService.addMessage(conversationId, {
       externalMessageId: body.externalMessageId ?? null,
@@ -124,3 +170,17 @@ conversationsRouter.get('/:id/audit', async (req: Request, res: Response, next: 
     next(err);
   }
 });
+
+// POST /api/v1/conversations/:id/assign
+conversationsRouter.post('/:id/assign', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const id = UuidSchema.parse(req.params.id);
+    const body = AssignConversationSchema.parse(req.body || {});
+    const identityKey = getCallerIdentityKey(req);
+    const assignment = await assignmentService.assignConversation(id, body, identityKey);
+    res.status(200).json({ data: assignment });
+  } catch (err) {
+    next(err);
+  }
+});
+

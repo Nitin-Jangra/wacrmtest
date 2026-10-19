@@ -6,5 +6,11 @@
       "@gym-helpdesk/shared-types": ["packages/shared-types/src"]
     }
   },
-  "include": ["packages/*/src/**/*", "apps/*/src/**/*", "tests/**/*"]
+  "include": [
+    "packages/*/src/**/*",
+    "apps/api/src/**/*",
+    "apps/mock-crm-api/src/**/*",
+    "tests/**/*"
+  ],
+  "exclude": ["apps/dashboard"]
 }

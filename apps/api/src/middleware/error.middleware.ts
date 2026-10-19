@@ -29,6 +29,18 @@ export function errorHandler(err: Error, _req: Request, res: Response, _next: Ne
     return;
   }
 
+  // 2b. Assignment Domain Errors
+  if ('statusCode' in err && 'code' in err && typeof (err as any).statusCode === 'number') {
+    res.status((err as any).statusCode).json({
+      error: {
+        code: (err as any).code,
+        message: err.message,
+        details: (err as any).details,
+      },
+    });
+    return;
+  }
+
   // 3. Zod Validation Errors
   if (err instanceof ZodError) {
     res.status(400).json({

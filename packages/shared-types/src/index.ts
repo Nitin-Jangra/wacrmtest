@@ -409,3 +409,132 @@ export const CreateFollowUpSchema = z.object({
   status: z.enum(['scheduled', 'completed', 'cancelled', 'overdue']).default('scheduled'),
   note: z.string().nullable().optional(),
 });
+
+// Phase 3: Lead & Conversation Assignment DTOs
+export const AssignLeadSchema = z.object({
+  forceReassign: z.boolean().optional(),
+  requestId: z.string().max(100).optional(),
+});
+
+export const AssignConversationSchema = z.object({
+  forceReassign: z.boolean().optional(),
+  targetEmployeeId: z.string().uuid().optional(),
+  requestId: z.string().max(100).optional(),
+});
+export type AssignConversationDto = z.infer<typeof AssignConversationSchema>;
+
+export const UpdateConversationStatusSchema = z.object({
+  status: z.enum(['open', 'on_hold', 'resolved', 'closed']),
+});
+export type UpdateConversationStatusDto = z.infer<typeof UpdateConversationStatusSchema>;
+
+export const UpdateFollowUpSchema = z.object({
+  status: z.enum(['scheduled', 'completed', 'cancelled', 'overdue']).optional(),
+  note: z.string().nullable().optional(),
+  scheduledAt: z.string().datetime().optional(),
+});
+export type UpdateFollowUpDto = z.infer<typeof UpdateFollowUpSchema>;
+
+export const UpdateAgentSettingSchema = z.object({
+  isEligible: z.boolean().optional(),
+  assignmentWeight: z.number().int().min(0).optional(),
+  designationId: z.string().uuid().nullable().optional(),
+});
+
+// Phase 4: WhatsApp Cloud API DTOs
+export const SendTextMessageSchema = z.object({
+  type: z.literal('text').default('text'),
+  text: z.string().min(1, 'Message text is required'),
+});
+
+export type SendTextMessageDto = z.infer<typeof SendTextMessageSchema>;
+
+export const WhatsAppWebhookVerifyQuerySchema = z.object({
+  'hub.mode': z.string(),
+  'hub.verify_token': z.string(),
+  'hub.challenge': z.string(),
+});
+
+export type WhatsAppWebhookVerifyQuery = z.infer<typeof WhatsAppWebhookVerifyQuerySchema>;
+
+export interface MetaWhatsAppMessage {
+  from: string;
+  id: string;
+  timestamp: string;
+  type: string;
+  text?: {
+    body: string;
+  };
+  image?: {
+    id?: string;
+    mime_type?: string;
+    sha256?: string;
+    caption?: string;
+  };
+  audio?: {
+    id?: string;
+    mime_type?: string;
+  };
+  document?: {
+    id?: string;
+    filename?: string;
+    mime_type?: string;
+  };
+  [key: string]: unknown;
+}
+
+export interface MetaWhatsAppStatus {
+  id: string;
+  status: 'sent' | 'delivered' | 'read' | 'failed';
+  timestamp: string;
+  recipient_id: string;
+  conversation?: {
+    id: string;
+    origin?: {
+      type: string;
+    };
+  };
+  pricing?: {
+    billable: boolean;
+    pricing_model: string;
+    category: string;
+  };
+  errors?: Array<{
+    code: number;
+    title: string;
+    message?: string;
+    error_data?: {
+      details: string;
+    };
+  }>;
+}
+
+export interface MetaWhatsAppChangeValue {
+  messaging_product: 'whatsapp';
+  metadata: {
+    display_phone_number: string;
+    phone_number_id: string;
+  };
+  contacts?: Array<{
+    profile: {
+      name: string;
+    };
+    wa_id: string;
+  }>;
+  messages?: MetaWhatsAppMessage[];
+  statuses?: MetaWhatsAppStatus[];
+}
+
+export interface MetaWhatsAppWebhookEntry {
+  id: string;
+  changes: Array<{
+    field: string;
+    value: MetaWhatsAppChangeValue;
+  }>;
+}
+
+export interface MetaWhatsAppWebhookPayload {
+  object: 'whatsapp_business_account';
+  entry: MetaWhatsAppWebhookEntry[];
+}
+

@@ -3,6 +3,7 @@ import {
   ChatAgentSetting,
   Lead,
   Conversation,
+  ConversationStatus,
   Message,
   FollowUp,
   AssignmentAudit,
@@ -24,6 +25,10 @@ export class HelpdeskService {
 
   public setCrmAdapter(crm: ICrmAdapter): void {
     this.crm = crm;
+  }
+
+  public getCrmAdapter(): ICrmAdapter {
+    return this.crm;
   }
 
   // ---------------------------------------------------------------------------
@@ -98,6 +103,44 @@ export class HelpdeskService {
     }
 
     return this.repo.upsertAgentSetting(data);
+  }
+
+  public async getAgentSettingById(id: string): Promise<ChatAgentSetting> {
+    const setting = await this.repo.getAgentSettingById(id);
+    if (!setting) {
+      throw new DatabaseNotFoundError(`ChatAgentSetting with ID "${id}" not found`);
+    }
+    return setting;
+  }
+
+  public async updateAgentSetting(
+    id: string,
+    updates: Partial<Pick<ChatAgentSetting, 'isEligible' | 'assignmentWeight' | 'designationId'>>,
+    identityKey?: string,
+  ): Promise<ChatAgentSetting> {
+    const existing = await this.getAgentSettingById(id);
+
+    // If designation is updated, verify it belongs to the same tenant
+    if (updates.designationId) {
+      const designation = await this.crm.getChatDesignationById(updates.designationId, identityKey);
+      if (designation.tenantId !== existing.tenantId) {
+        throw new DatabaseConstraintError(
+          `Cross-tenant designation violation: Designation ${updates.designationId} belongs to tenant ${designation.tenantId}, not ${existing.tenantId}`,
+        );
+      }
+    }
+
+    // Inactive employee guard: an inactive employee cannot be set to eligible
+    if (updates.isEligible === true) {
+      const employee = await this.crm.getEmployeeById(existing.employeeId, identityKey);
+      if (employee.status !== 'active') {
+        throw new DatabaseConstraintError(
+          `Eligibility violation: Employee ${existing.employeeId} is inactive in CRM and cannot be configured as eligible for chat support`,
+        );
+      }
+    }
+
+    return this.repo.updateAgentSetting(id, updates);
   }
 
   public async listAgentSettings(tenantId: string, branchId?: string): Promise<ChatAgentSetting[]> {
@@ -216,8 +259,43 @@ export class HelpdeskService {
     status?: string,
     page?: number,
     limit?: number,
+    assignedEmployeeId?: string,
   ): Promise<{ data: Conversation[]; total: number }> {
+    if (assignedEmployeeId) {
+      return this.repo.listConversations(tenantId, branchId, status, page, limit, assignedEmployeeId);
+    }
     return this.repo.listConversations(tenantId, branchId, status, page, limit);
+  }
+
+  public async updateConversationStatus(
+    id: string,
+    status: ConversationStatus,
+    identityKey?: string,
+  ): Promise<Conversation> {
+    const conversation = await this.getConversationById(id);
+
+    if (identityKey) {
+      const identityRes = await this.crm.getCurrentIdentity(identityKey);
+      const caller = identityRes.identity;
+      if (caller.role === 'branch_admin' || caller.role === 'employee') {
+        if (caller.tenantId !== conversation.tenantId || (caller.branchId && caller.branchId !== conversation.branchId)) {
+          throw new DatabaseConstraintError('Caller not authorized to update conversation status');
+        }
+      } else if (caller.role === 'tenant_admin') {
+        if (caller.tenantId !== conversation.tenantId) {
+          throw new DatabaseConstraintError('Caller not authorized to update conversation status');
+        }
+      }
+    }
+
+    const updates: Partial<Conversation> = { status };
+    if (status === 'closed' || status === 'resolved') {
+      updates.closedAt = new Date().toISOString();
+    } else if (status === 'open' || status === 'on_hold') {
+      updates.closedAt = null;
+    }
+
+    return this.repo.updateConversation(id, updates);
   }
 
   // ---------------------------------------------------------------------------
@@ -278,8 +356,21 @@ export class HelpdeskService {
     return this.repo.createFollowUp(data);
   }
 
-  public async listFollowUps(tenantId: string, branchId?: string, status?: string): Promise<FollowUp[]> {
-    return this.repo.listFollowUps(tenantId, branchId, status);
+  public async listFollowUps(
+    tenantId: string,
+    branchId?: string,
+    status?: string,
+    conversationId?: string,
+    assignedEmployeeId?: string,
+  ): Promise<FollowUp[]> {
+    return this.repo.listFollowUps(tenantId, branchId, status, conversationId, assignedEmployeeId);
+  }
+
+  public async updateFollowUp(
+    id: string,
+    updates: Partial<Pick<FollowUp, 'status' | 'note' | 'scheduledAt'>>,
+  ): Promise<FollowUp> {
+    return this.repo.updateFollowUp(id, updates);
   }
 
   public async listAssignmentAudit(conversationId: string): Promise<AssignmentAudit[]> {

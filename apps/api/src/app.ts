@@ -10,6 +10,8 @@ import { leadsRouter } from './modules/leads/leads.route';
 import { conversationsRouter } from './modules/conversations/conversations.route';
 import { followUpsRouter } from './modules/follow-ups/follow-ups.route';
 import { webhookEventsRouter } from './modules/webhook-events/webhook-events.route';
+import { branchesRouter } from './modules/branches/branches.route';
+import { whatsappWebhookRouter } from './modules/webhooks/whatsapp.route';
 import { errorHandler } from './middleware/error.middleware';
 
 export function createHelpdeskApp(): Express {
@@ -28,13 +30,20 @@ export function createHelpdeskApp(): Express {
         }
         return callback(new Error(`CORS origin "${origin}" not allowed by policy`));
       },
-      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+      methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'Authorization', 'x-mock-identity'],
     }),
   );
 
-  // 3. Body parser
-  app.use(express.json({ limit: '100kb' }));
+  // 3. Body parser with raw body retention for HMAC verification
+  app.use(
+    express.json({
+      limit: '100kb',
+      verify: (req: any, _res, buf) => {
+        req.rawBody = buf;
+      },
+    }),
+  );
 
   // 4. Health module
   app.use('/health', healthRouter);
@@ -49,6 +58,8 @@ export function createHelpdeskApp(): Express {
   app.use('/api/v1/conversations', conversationsRouter);
   app.use('/api/v1/follow-ups', followUpsRouter);
   app.use('/api/v1/webhook-events', webhookEventsRouter);
+  app.use('/api/v1/branches', branchesRouter);
+  app.use('/api/v1/webhooks/whatsapp', whatsappWebhookRouter);
 
   // 7. 404 handler
   app.use((req: Request, res: Response) => {

@@ -1,6 +1,12 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { CreateLeadSchema, PaginationQuerySchema, UuidSchema } from '@gym-helpdesk/shared-types';
+import {
+  CreateLeadSchema,
+  PaginationQuerySchema,
+  UuidSchema,
+  AssignLeadSchema,
+} from '@gym-helpdesk/shared-types';
 import { helpdeskService } from '../../services/helpdesk.service';
+import { assignmentService } from '../../services/assignment/assignment.service';
 
 export const leadsRouter = Router();
 
@@ -70,3 +76,17 @@ leadsRouter.get('/:id', async (req: Request, res: Response, next: NextFunction) 
     next(err);
   }
 });
+
+// POST /api/v1/leads/:id/assign
+leadsRouter.post('/:id/assign', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const id = UuidSchema.parse(req.params.id);
+    const body = AssignLeadSchema.parse(req.body || {});
+    const identityKey = getCallerIdentityKey(req);
+    const assignment = await assignmentService.assignLead(id, body, identityKey);
+    res.status(200).json({ data: assignment });
+  } catch (err) {
+    next(err);
+  }
+});
+

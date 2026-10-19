@@ -66,6 +66,18 @@ export class HelpdeskRepository {
     return (data || []).map(this.mapChannel);
   }
 
+  public async getChannelByPhoneNumberId(phoneNumberId: string): Promise<WhatsAppChannel | null> {
+    const client = getSupabaseClient();
+    const { data, error } = await client
+      .from('whatsapp_channels')
+      .select('*')
+      .eq('phone_number_id', phoneNumberId)
+      .maybeSingle();
+
+    if (error) throw new DatabaseConstraintError(error.message);
+    return data ? this.mapChannel(data) : null;
+  }
+
   // ---------------------------------------------------------------------------
   // Designations
   // ---------------------------------------------------------------------------
@@ -134,6 +146,42 @@ export class HelpdeskRepository {
     return data ? this.mapAgentSetting(data) : null;
   }
 
+  public async getAgentSettingById(id: string): Promise<ChatAgentSetting | null> {
+    const client = getSupabaseClient();
+    const { data, error } = await client
+      .from('chat_agent_settings')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (error) throw new DatabaseConstraintError(error.message);
+    return data ? this.mapAgentSetting(data) : null;
+  }
+
+  public async updateAgentSetting(
+    id: string,
+    updates: Partial<Pick<ChatAgentSetting, 'isEligible' | 'assignmentWeight' | 'designationId'>>,
+  ): Promise<ChatAgentSetting> {
+    const client = getSupabaseClient();
+    const dbUpdates: Record<string, unknown> = {
+      updated_at: new Date().toISOString(),
+    };
+    if (updates.isEligible !== undefined) dbUpdates['is_eligible'] = updates.isEligible;
+    if (updates.assignmentWeight !== undefined) dbUpdates['assignment_weight'] = updates.assignmentWeight;
+    if (updates.designationId !== undefined) dbUpdates['designation_id'] = updates.designationId;
+
+    const { data, error } = await client
+      .from('chat_agent_settings')
+      .update(dbUpdates)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw new DatabaseConstraintError(error.message, error);
+    if (!data) throw new DatabaseNotFoundError(`ChatAgentSetting ${id} not found`);
+    return this.mapAgentSetting(data);
+  }
+
   public async listAgentSettings(tenantId: string, branchId?: string): Promise<ChatAgentSetting[]> {
     const client = getSupabaseClient();
     let query = client.from('chat_agent_settings').select('*').eq('tenant_id', tenantId);
@@ -194,6 +242,36 @@ export class HelpdeskRepository {
     };
   }
 
+  public async findLeadByPhoneOrExternalId(
+    tenantId: string,
+    branchId: string,
+    identifier: string,
+  ): Promise<Lead | null> {
+    const client = getSupabaseClient();
+    // Query leads table matching tenant, branch, and either phone_number or external_contact_id
+    const byPhone = await client
+      .from('leads')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .eq('branch_id', branchId)
+      .eq('phone_number', identifier)
+      .maybeSingle();
+
+    if (byPhone.data) return this.mapLead(byPhone.data);
+
+    const byExt = await client
+      .from('leads')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .eq('branch_id', branchId)
+      .eq('external_contact_id', identifier)
+      .maybeSingle();
+
+    if (byExt.data) return this.mapLead(byExt.data);
+
+    return null;
+  }
+
   // ---------------------------------------------------------------------------
   // Conversations
   // ---------------------------------------------------------------------------
@@ -236,11 +314,13 @@ export class HelpdeskRepository {
     status?: string,
     page: number = 1,
     limit: number = 20,
+    assignedEmployeeId?: string,
   ): Promise<{ data: Conversation[]; total: number }> {
     const client = getSupabaseClient();
     let query = client.from('conversations').select('*', { count: 'exact' }).eq('tenant_id', tenantId);
     if (branchId) query = query.eq('branch_id', branchId);
     if (status) query = query.eq('status', status);
+    if (assignedEmployeeId) query = query.eq('assigned_employee_id', assignedEmployeeId);
 
     const from = (page - 1) * limit;
     const to = from + limit - 1;
@@ -271,6 +351,27 @@ export class HelpdeskRepository {
     if (error) throw new DatabaseConstraintError(error.message);
     if (!data) throw new DatabaseNotFoundError(`Conversation ${id} not found`);
     return this.mapConversation(data);
+  }
+
+  public async findActiveConversation(
+    tenantId: string,
+    branchId: string,
+    leadId: string,
+    channelId: string,
+  ): Promise<Conversation | null> {
+    const client = getSupabaseClient();
+    const { data, error } = await client
+      .from('conversations')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .eq('branch_id', branchId)
+      .eq('lead_id', leadId)
+      .eq('channel_id', channelId)
+      .order('created_at', { ascending: false })
+      .maybeSingle();
+
+    if (error) throw new DatabaseConstraintError(error.message);
+    return data ? this.mapConversation(data) : null;
   }
 
   // ---------------------------------------------------------------------------
@@ -318,6 +419,53 @@ export class HelpdeskRepository {
     };
   }
 
+  public async getMessageById(id: string): Promise<Message | null> {
+    const client = getSupabaseClient();
+    const { data, error } = await client
+      .from('messages')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (error) throw new DatabaseConstraintError(error.message);
+    return data ? this.mapMessage(data) : null;
+  }
+
+  public async getMessageByExternalId(externalMessageId: string): Promise<Message | null> {
+    const client = getSupabaseClient();
+    const { data, error } = await client
+      .from('messages')
+      .select('*')
+      .eq('external_message_id', externalMessageId)
+      .maybeSingle();
+
+    if (error) throw new DatabaseConstraintError(error.message);
+    return data ? this.mapMessage(data) : null;
+  }
+
+  public async updateMessage(id: string, updates: Partial<Message>): Promise<Message> {
+    const client = getSupabaseClient();
+    const dbUpdates: Record<string, unknown> = {};
+    if (updates.externalMessageId !== undefined) dbUpdates['external_message_id'] = updates.externalMessageId;
+    if (updates.deliveryStatus !== undefined) dbUpdates['delivery_status'] = updates.deliveryStatus;
+    if (updates.body !== undefined) dbUpdates['body'] = updates.body;
+    if (updates.payload !== undefined) dbUpdates['payload'] = updates.payload;
+    if (updates.sentAt !== undefined) dbUpdates['sent_at'] = updates.sentAt;
+    if (updates.deliveredAt !== undefined) dbUpdates['delivered_at'] = updates.deliveredAt;
+    if (updates.readAt !== undefined) dbUpdates['read_at'] = updates.readAt;
+
+    const { data, error } = await client
+      .from('messages')
+      .update(dbUpdates)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw new DatabaseConstraintError(error.message);
+    if (!data) throw new DatabaseNotFoundError(`Message ${id} not found`);
+    return this.mapMessage(data);
+  }
+
   // ---------------------------------------------------------------------------
   // Follow-Ups
   // ---------------------------------------------------------------------------
@@ -343,15 +491,42 @@ export class HelpdeskRepository {
     return this.mapFollowUp(data);
   }
 
-  public async listFollowUps(tenantId: string, branchId?: string, status?: string): Promise<FollowUp[]> {
+  public async listFollowUps(
+    tenantId: string,
+    branchId?: string,
+    status?: string,
+    conversationId?: string,
+    assignedEmployeeId?: string,
+  ): Promise<FollowUp[]> {
     const client = getSupabaseClient();
     let query = client.from('follow_ups').select('*').eq('tenant_id', tenantId);
     if (branchId) query = query.eq('branch_id', branchId);
     if (status) query = query.eq('status', status);
+    if (conversationId) query = query.eq('conversation_id', conversationId);
+    if (assignedEmployeeId) query = query.eq('assigned_employee_id', assignedEmployeeId);
 
     const { data, error } = await query.order('scheduled_at', { ascending: true });
     if (error) throw new DatabaseConstraintError(error.message);
     return (data || []).map(this.mapFollowUp);
+  }
+
+  public async updateFollowUp(id: string, updates: Partial<FollowUp>): Promise<FollowUp> {
+    const client = getSupabaseClient();
+    const dbUpdates: Record<string, unknown> = {};
+    if (updates.status !== undefined) dbUpdates['status'] = updates.status;
+    if (updates.note !== undefined) dbUpdates['note'] = updates.note;
+    if (updates.scheduledAt !== undefined) dbUpdates['scheduled_at'] = updates.scheduledAt;
+
+    const { data, error } = await client
+      .from('follow_ups')
+      .update(dbUpdates)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw new DatabaseConstraintError(error.message);
+    if (!data) throw new DatabaseNotFoundError(`FollowUp ${id} not found`);
+    return this.mapFollowUp(data);
   }
 
   // ---------------------------------------------------------------------------
@@ -424,6 +599,30 @@ export class HelpdeskRepository {
 
     if (error) throw new DatabaseConstraintError(error.message);
     return data ? this.mapWebhookEvent(data) : null;
+  }
+
+  public async updateWebhookEvent(
+    id: string,
+    updates: Partial<Pick<WebhookEvent, 'processingStatus' | 'errorCode' | 'processedAt' | 'tenantId' | 'channelId'>>,
+  ): Promise<WebhookEvent> {
+    const client = getSupabaseClient();
+    const dbUpdates: Record<string, unknown> = {};
+    if (updates.processingStatus !== undefined) dbUpdates['processing_status'] = updates.processingStatus;
+    if (updates.errorCode !== undefined) dbUpdates['error_code'] = updates.errorCode;
+    if (updates.processedAt !== undefined) dbUpdates['processed_at'] = updates.processedAt;
+    if (updates.tenantId !== undefined) dbUpdates['tenant_id'] = updates.tenantId;
+    if (updates.channelId !== undefined) dbUpdates['channel_id'] = updates.channelId;
+
+    const { data, error } = await client
+      .from('webhook_events')
+      .update(dbUpdates)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw new DatabaseConstraintError(error.message);
+    if (!data) throw new DatabaseNotFoundError(`Webhook event ${id} not found`);
+    return this.mapWebhookEvent(data);
   }
 
   // ---------------------------------------------------------------------------

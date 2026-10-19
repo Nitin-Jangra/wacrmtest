@@ -6,9 +6,16 @@ import {
   BranchFilterQuerySchema,
   DesignationFilterQuerySchema,
 } from '@gym-helpdesk/shared-types';
+import { ICrmAdapter } from '../../integrations/crm/crm.interface';
 import { crmAdapter } from '../../integrations/crm/crm-adapter.factory';
 
 export const crmProxyRouter = Router();
+
+let activeCrmAdapter: ICrmAdapter = crmAdapter;
+
+export function setCrmProxyAdapter(adapter: ICrmAdapter): void {
+  activeCrmAdapter = adapter;
+}
 
 function getCallerIdentityKey(req: Request): string | undefined {
   const headerVal = req.headers['x-mock-identity'];
@@ -19,7 +26,7 @@ function getCallerIdentityKey(req: Request): string | undefined {
 crmProxyRouter.get('/me', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const identityKey = getCallerIdentityKey(req);
-    const data = await crmAdapter.getCurrentIdentity(identityKey);
+    const data = await activeCrmAdapter.getCurrentIdentity(identityKey);
     res.status(200).json({ data });
   } catch (err) {
     next(err);
@@ -31,7 +38,7 @@ crmProxyRouter.get('/tenants', async (req: Request, res: Response, next: NextFun
   try {
     const query = PaginationQuerySchema.parse(req.query);
     const identityKey = getCallerIdentityKey(req);
-    const result = await crmAdapter.listAccessibleTenants(
+    const result = await activeCrmAdapter.listAccessibleTenants(
       undefined,
       query.page,
       query.limit,
@@ -50,7 +57,7 @@ crmProxyRouter.get(
     try {
       const tenantId = UuidSchema.parse(req.params.tenantId);
       const identityKey = getCallerIdentityKey(req);
-      const tenant = await crmAdapter.getTenantById(tenantId, identityKey);
+      const tenant = await activeCrmAdapter.getTenantById(tenantId, identityKey);
       res.status(200).json({ data: tenant });
     } catch (err) {
       next(err);
@@ -66,7 +73,7 @@ crmProxyRouter.get(
       const tenantId = UuidSchema.parse(req.params.tenantId);
       const query = BranchFilterQuerySchema.parse(req.query);
       const identityKey = getCallerIdentityKey(req);
-      const result = await crmAdapter.listBranchesByTenant(
+      const result = await activeCrmAdapter.listBranchesByTenant(
         tenantId,
         { status: query.status },
         query.page,
@@ -87,7 +94,7 @@ crmProxyRouter.get(
     try {
       const branchId = UuidSchema.parse(req.params.branchId);
       const identityKey = getCallerIdentityKey(req);
-      const branch = await crmAdapter.getBranchById(branchId, identityKey);
+      const branch = await activeCrmAdapter.getBranchById(branchId, identityKey);
       res.status(200).json({ data: branch });
     } catch (err) {
       next(err);
@@ -103,7 +110,7 @@ crmProxyRouter.get(
       const tenantId = UuidSchema.parse(req.params.tenantId);
       const query = EmployeeFilterQuerySchema.parse(req.query);
       const identityKey = getCallerIdentityKey(req);
-      const result = await crmAdapter.listEmployeesByTenant(
+      const result = await activeCrmAdapter.listEmployeesByTenant(
         tenantId,
         {
           status: query.status,
@@ -130,7 +137,7 @@ crmProxyRouter.get(
       const branchId = UuidSchema.parse(req.params.branchId);
       const query = EmployeeFilterQuerySchema.parse(req.query);
       const identityKey = getCallerIdentityKey(req);
-      const result = await crmAdapter.listEmployeesByBranch(
+      const result = await activeCrmAdapter.listEmployeesByBranch(
         branchId,
         {
           status: query.status,
@@ -155,7 +162,7 @@ crmProxyRouter.get(
     try {
       const employeeId = UuidSchema.parse(req.params.employeeId);
       const identityKey = getCallerIdentityKey(req);
-      const employee = await crmAdapter.getEmployeeById(employeeId, identityKey);
+      const employee = await activeCrmAdapter.getEmployeeById(employeeId, identityKey);
       res.status(200).json({ data: employee });
     } catch (err) {
       next(err);
@@ -171,7 +178,7 @@ crmProxyRouter.get(
       const tenantId = UuidSchema.parse(req.params.tenantId);
       const query = DesignationFilterQuerySchema.parse(req.query);
       const identityKey = getCallerIdentityKey(req);
-      const result = await crmAdapter.listChatDesignations(
+      const result = await activeCrmAdapter.listChatDesignations(
         tenantId,
         { status: query.status },
         query.page,
@@ -192,7 +199,7 @@ crmProxyRouter.get(
     try {
       const designationId = UuidSchema.parse(req.params.designationId);
       const identityKey = getCallerIdentityKey(req);
-      const desig = await crmAdapter.getChatDesignationById(designationId, identityKey);
+      const desig = await activeCrmAdapter.getChatDesignationById(designationId, identityKey);
       res.status(200).json({ data: desig });
     } catch (err) {
       next(err);
@@ -207,7 +214,7 @@ crmProxyRouter.get(
     try {
       const branchId = UuidSchema.parse(req.params.branchId);
       const identityKey = getCallerIdentityKey(req);
-      const agents = await crmAdapter.listEligibleChatAgents(branchId, identityKey);
+      const agents = await activeCrmAdapter.listEligibleChatAgents(branchId, identityKey);
       res.status(200).json({ data: agents });
     } catch (err) {
       next(err);
