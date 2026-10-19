@@ -33,6 +33,7 @@
     "@typescript-eslint/parser": "^8.24.1",
     "concurrently": "^9.1.2",
     "eslint": "^9.20.1",
+    "pg": "^8.23.1",
     "prettier": "^3.5.1",
     "rimraf": "^6.0.1",
     "supertest": "^7.3.1",

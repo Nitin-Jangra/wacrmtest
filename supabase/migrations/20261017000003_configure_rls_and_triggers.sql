@@ -173,7 +173,7 @@ BEGIN
                     is_session_super_admin() OR
                     tenant_id = current_session_tenant_id()
                 );
-        ', tbl, tbl, tbl);
+        ', tbl, tbl, tbl, tbl, tbl, tbl);
     END LOOP;
 END;
 $$;

@@ -34,8 +34,18 @@ describe('Database Fail-Closed & Fail-Fast Tests', () => {
 
   it('checkDatabaseHealth should return not_configured when credentials missing', async () => {
     setSupabaseClient(null);
-    const health = await checkDatabaseHealth();
-    expect(['not_configured', 'unreachable']).toContain(health.status);
-    expect(health.message).toBeDefined();
+    const origUrl = process.env.SUPABASE_URL;
+    const origKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    delete process.env.SUPABASE_URL;
+    delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    try {
+      const health = await checkDatabaseHealth();
+      expect(['not_configured', 'unreachable']).toContain(health.status);
+      expect(health.message).toBeDefined();
+    } finally {
+      if (origUrl) process.env.SUPABASE_URL = origUrl;
+      if (origKey) process.env.SUPABASE_SERVICE_ROLE_KEY = origKey;
+    }
   });
 });
