@@ -12,14 +12,12 @@
   },
   "dependencies": {
     "@gym-helpdesk/shared-types": "*",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "helmet": "^8.0.0",
     "zod": "^3.24.2"
-  },
-  "devDependencies": {
-    "@types/cors": "^2.8.17",
-    "@types/express": "^4.17.21"
   }
 }
