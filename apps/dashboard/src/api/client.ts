@@ -48,7 +48,10 @@ export class HelpdeskApiClient {
   private currentIdentityKey: string = 'alpha_branch_admin';
 
   constructor(baseUrl?: string) {
-    const envUrl = typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_BASE_URL;
+    let envUrl = typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_BASE_URL;
+    if (envUrl && typeof envUrl === 'string' && envUrl.endsWith('/')) {
+      envUrl = envUrl.slice(0, -1);
+    }
     this.baseUrl = baseUrl || envUrl || '/api/v1';
   }
 
@@ -99,7 +102,8 @@ export class HelpdeskApiClient {
       return (await response.text()) as unknown as T;
     } catch (err: unknown) {
       if (err instanceof ApiError) throw err;
-      throw new ApiError(0, 'NETWORK_ERROR', (err as Error)?.message || 'Failed to connect to backend server');
+      const msg = (err as Error)?.message || 'Failed to connect to backend server';
+      throw new ApiError(0, 'NETWORK_ERROR', `${msg} (endpoint: ${url})`);
     }
   }
 
